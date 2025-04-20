@@ -1,0 +1,50 @@
+$ project_3$ ./detect_dups test5/
+File 1
+	MD5 Hash: 4fe82b0e520f6c2ff0e0c3e41f6b5c70
+	Hard Link (3): 9080903
+		Paths:	test5/file1.txt
+			test5/hardh1.txt
+			test5/hard1.txt
+		Soft Link 1(1): 9080905
+			Paths:	test5/soft11.txt
+		Soft Link 2(1): 9080906
+			Paths:	test5/soft12.txt
+
+File 2
+	MD5 Hash: e711f198c6af98d1d13c99f030173add
+	Hard Link (2): 9080914
+		Paths:	test5/file3.txt
+			test5/test2/file3.txt
+		Soft Link 1(1): 9080919
+			Paths:	test5/file31s.txt
+		Soft Link 2(1): 9080920
+			Paths:	test5/file32s.txt
+
+File 3
+	MD5 Hash: e7306b66ffc22d67326dec2122cb0832
+	Hard Link (3): 9080909
+		Paths:	test5/test1/hard2.txt
+			test5/test1/file2.txt
+			test5/test1/hardh2.txt
+		Soft Link 1(2): 9080911
+			Paths:	test5/test1/hards2.txt
+				test5/test1/soft2.txt
+
+File 4
+	MD5 Hash: cb1385d30851a1f01f8f36dbff04a2dd
+	Hard Link (3): 9080908
+		Paths:	test5/test1/file1.txt
+			test5/test1/hardh1.txt
+			test5/test1/hard1.txt
+		Soft Link 1(2): 9080910
+			Paths:	test5/test1/soft1.txt
+				test5/test1/hards1.txt
+	Hard Link (2): 9080912
+		Paths:	test5/test1/file3.txt
+			test5/test1/hards3.txt
+
+File 5
+	MD5 Hash: f08957f87d4e8b4dc9de3e3f0b88dcee
+	Hard Link (1): 9080904
+		Paths:	test5/file2.txt
+
