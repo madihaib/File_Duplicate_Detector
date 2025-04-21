@@ -22,9 +22,8 @@ const EVP_MD *EVP_md5(); // use md5 hash!!
 // add the nftw handler to explore the directory
 // nftw should invoke the render_file_info function
 
-int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_value,
-                      unsigned int *md5_len)
-{
+int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_value, unsigned int *md5_len){
+  
   FILE *givenFile = fopen(path, "rb"); //checks if the efile can open or NOT
   if (givenFile == NULL)
   {
@@ -43,8 +42,8 @@ int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_val
   return 0;
 }
 
-char* getMD5(const char *filename)
-{
+char* getMD5(const char *filename){
+
   int j;
   unsigned char md5_value[EVP_MAX_MD_SIZE];
   unsigned char* hashaspointer = (unsigned char*)malloc(EVP_MAX_MD_SIZE * sizeof(unsigned char));
@@ -71,9 +70,10 @@ char* getMD5(const char *filename)
   return hashaspointer;
 }
 
+
 // render the file information invoked by nftw
-static int render_file_info(const char *path, const struct stat *sb, int tflag, struct FTW *ftwbuf)
-{
+static int render_file_info(const char *path, const struct stat *sb, int tflag, struct FTW *ftwbuf){
+
   unsigned char* hashToCompare = (unsigned char*)malloc(md5_len * sizeof(unsigned char));
   // fpath = my current path
   // REMEMBER that there is no explicit loop/recurison, NFTW does it internally with its own code,
@@ -146,8 +146,8 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
   return 0; // DO NOT REMOVE THIS LINE.  THIS ENSURES THAT THE FILE-WALK RUNS MORE THAN ONCE.
 }
 
-int main(int argc, char *argv[])
-{
+
+int main(int argc, char *argv[]){
   // If argument was not passed
   if ((argv[1] != NULL) && (argc == 2))
   {
@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
   }
   return 0;
 }
+
 
 // add any other functions you may need over here
 
