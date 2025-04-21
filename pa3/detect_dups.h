@@ -37,6 +37,6 @@ char *getMD5(const char *fpath);
 
 void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev);
 
-void printDuplicates(void);
+void printDuplicates(int fileNumber, int referenceCount, int inodeNumber, int devNumber);
 
 void freeAll(void);
