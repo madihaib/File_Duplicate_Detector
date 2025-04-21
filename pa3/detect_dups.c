@@ -63,49 +63,6 @@ char* getMD5(const char *filename)
   }
   EVP_MD_CTX_free(mdctx); 
   return hashaspointer;
-const EVP_MD *MD5Type = NULL;
-hashEntry *hashTable = NULL;
-
-
-// open ssl, //this will be used to get the hash of the file
-EVP_MD_CTX *mdctx;
-const EVP_MD *EVP_md5(); // use md5 hash!!
-
-int main(int argc, char *argv[]){
-
-    // If argument was not passed
-    if (argv[1]==NULL){
-        fprintf(stderr, "Usage: ./detect_dups <directory>\n");
-        //fprintf(stderr, "failure");
-        exit(EXIT_FAILURE);
-    }
-
-    mdctx = EVP_MD_CTX_new();
-
-    // If an incorrect directory was given 
-    //change the NULL listing
-    char *path = argv[1];
-    // Calling nftw
-    if (nftw(argv[1], render_file_info, 20, 0) == -1) {
-        perror("nftw");
-        exit(EXIT_FAILURE);
-    }
-
-    /*
-    CHECKLIST: ERROR HANDLING COMPLETED
-    */
-
-    // perform error handling, "exit" with failure incase an error occurs
-    // initialize the other global variables you have, if any
-
-    // add the nftw handler to explore the directory
-    // nftw should invoke the render_file_info function
-
-
-
-    // printDuplicates();
-    freeAll();
-    return 0;
 }
 
 // render the file information invoked by nftw
@@ -205,19 +162,6 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
   return 0;
-}
-
-
-
-    // perform the inode operations over here
-
-
-    // invoke any function that you may need to render the file information
-    char *hex = getMD5(path);
-    storeToTable(hex, path, sb->st_ino, sb->st_dev);
-    free(hex);
-    EVP_MD_CTX_free(mdctx);
-    return 0;
 }
 
 // add any other functions you may need over here
