@@ -100,17 +100,32 @@ char *getMD5(const char *fpath){
 void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
 
     // look up MD5 string in the hash table, use HASH_FIND
-    hashEntry entry = HASH_FIND_STR(hashTable, md5); 
+    hashEntry *entry = NULL;
+    HASH_FIND_STR(hashTable, md5, entry);
 
     // if not found, add it to the hash table
     if(entry == NULL){
         entry = (hashEntry *)malloc(sizeof(hashEntry));
-
+        strcpy(entry->md5, md5);
+        entry->files = NULL; 
         HASH_ADD_STR(hashTable, md5, entry); // add to hash table
     }
 
     // check for exising inode + dev for each file node
+    for(fileNode *file = entry->files; file != NULL; file = file->next){
+        if(file->inode == inode && file->dev == dev){
+            // the file already exists, so no you just return
+            return;
+        }
+    }
     
+    // create a new file node
+    fileNode *newFile = (fileNode*)malloc(sizeof(fileNode));
+    newFile->path = strdup(path); // duplicate the path
+    newFile->inode = inode;
+    newFile->dev = dev;
+    newFile->next = entry->files;
+    entry->files = newFile;
 
 }
 
