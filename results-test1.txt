@@ -1,0 +1,23 @@
+$ project_3$ ./detect_dups test1/
+File 1
+	MD5 Hash: e7306b66ffc22d67326dec2122cb0832
+	Hard Link (3): 9079949
+		Paths:	test1/hard2.txt
+			test1/file2.txt
+			test1/hardh2.txt
+		Soft Link 1(2): 9079951
+			Paths:	test1/hards2.txt
+				test1/soft2.txt
+
+File 2
+	MD5 Hash: cb1385d30851a1f01f8f36dbff04a2dd
+	Hard Link (3): 9079948
+		Paths:	test1/file1.txt
+			test1/hardh1.txt
+			test1/hard1.txt
+		Soft Link 1(2): 9079950
+			Paths:	test1/soft1.txt
+				test1/hards1.txt
+	Hard Link (2): 9079952
+		Paths:	test1/file3.txt
+			test1/hards3.txt
