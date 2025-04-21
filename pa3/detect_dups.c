@@ -45,6 +45,12 @@ int main(int argc, char *argv[])
 
     // add the nftw handler to explore the directory
     // nftw should invoke the render_file_info function
+
+
+
+    printDuplicates();
+    freeAll();
+    return 0;
 }
 
 // render the file information invoked by nftw
