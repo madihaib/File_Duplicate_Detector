@@ -176,8 +176,8 @@ char *getMD5(const char *path){
 
     FILE *fp = fopen(path, "rb");
 
-    if(fp == NULL){
-        return -1;
+    if(!fp){
+        return NULL;
     }
     
     // initialize the MD5 context
