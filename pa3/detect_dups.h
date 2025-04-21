@@ -13,11 +13,17 @@
 #include "uthash.h"
 
 // define the structure required to store the file paths
-typedef struct {
-    char *md5; // md5 hash of the file
+
+typedef struct fileNode{
     char *path; // path to the file
     ino_t inode; // inode number of the file
     dev_t dev; // device number of the file
+    struct fileNode *next; // pointer to the next file node
+} fileNode;
+
+typedef struct hashEntry {
+    char md5[33]; // md5 hash of the file
+    fileNode *files;
     UT_hash_handle hh; // makes this structure hashable
 } hashEntry;
 

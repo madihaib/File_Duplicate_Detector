@@ -50,13 +50,16 @@ int main(int argc, char *argv[])
 // render the file information invoked by nftw
 static int render_file_info(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
-    //EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
-
 
 
     // perform the inode operations over here
 
+
     // invoke any function that you may need to render the file information
+    char *hex = getMD5(fpath);
+    storeToTable(hex, fpath, sb->st_ino, sb->st_dev);
+    free(hex);
+    return 0;
 }
 
 // add any other functions you may need over here
@@ -100,24 +103,40 @@ char *getMD5(const char *fpath){
 void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
 
     // look up MD5 string in the hash table, use HASH_FIND
-    hashEntry entry = HASH_FIND_STR(hashTable, md5); 
+    hashEntry *entry = NULL;
+    HASH_FIND_STR(hashTable, md5, entry);
 
     // if not found, add it to the hash table
     if(entry == NULL){
         entry = (hashEntry *)malloc(sizeof(hashEntry));
-
+        strcpy(entry->md5, md5);
+        entry->files = NULL; 
         HASH_ADD_STR(hashTable, md5, entry); // add to hash table
     }
 
     // check for exising inode + dev for each file node
+    for(fileNode *file = entry->files; file != NULL; file = file->next){
+        if(file->inode == inode && file->dev == dev){
+            // the file already exists, so no you just return
+            return;
+        }
+    }
     
+    // create a new file node
+    fileNode *newFile = (fileNode*)malloc(sizeof(fileNode));
+    newFile->path = strdup(path); // duplicate the path
+    newFile->inode = inode;
+    newFile->dev = dev;
+    newFile->next = entry->files;
+    entry->files = newFile;
 
 }
 
 
-// void printDuplicates(){
+void printDuplicates(){
 
-// }
+
+}
 
 
 // void freeAll()
