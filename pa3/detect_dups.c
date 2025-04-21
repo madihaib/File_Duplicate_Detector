@@ -11,11 +11,17 @@
 #define MAX_LEN 2048
 
 // define any other global variable you may need over here
-// const EVP_MD *MD5Type = NULL;
-// hashEntry *hashTable = NULL;
+const EVP_MD *MD5Type = NULL;
+hashEntry *hashTable = NULL;
 unsigned int md5_len = 0;
+
+// open ssl, //this will be used to get the hash of the file
+EVP_MD_CTX *mdctx;
+const EVP_MD *EVP_md5(); // use md5 hash!!
+
 // add the nftw handler to explore the directory
 // nftw should invoke the render_file_info function
+
 int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_value,
                       unsigned int *md5_len)
 {
@@ -72,7 +78,7 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
   // fpath = my current path
   // REMEMBER that there is no explicit loop/recurison, NFTW does it internally with its own code,
   // DON'T NEED TO WORRY ABOUT THAT
-  printf("Inode: %lu, Name: %s", (unsigned long)sb->st_ino, fpath);
+  printf("Inode: %lu, Name: %s", (unsigned long)sb->st_ino, path);
   printf("\n");
   //(unsigned long)sb->st_ino is the number of the inode
   // fpath = my current path
@@ -87,7 +93,7 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
   {
   case FTW_F:
     printf(" Regular File, Last Access: %s ", ctime(&sb->st_atime));
-    hashToCompare = getMD5(fpath);
+    hashToCompare = getMD5(path);
     // printf("Hash IN METHOD:");
     // for (int i=0; i<md5_len; i++)
     // {
@@ -106,8 +112,8 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
   case FTW_D:
     printf(" (Directory) \n");
     printf("level=%02d, size=%07ld path=%s filename=%s\n",
-           ftwbuf->level, sb->st_size, fpath, fpath + ftwbuf->base);
-           hashToCompare = getMD5(fpath);
+           ftwbuf->level, sb->st_size, path, path + ftwbuf->base);
+           hashToCompare = getMD5(path);
           //  printf("Hash IN METHOD:");
           //  for (int i=0; i<md5_len; i++)
           //  {
