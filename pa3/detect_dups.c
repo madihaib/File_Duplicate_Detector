@@ -20,12 +20,14 @@ const EVP_MD *EVP_md5(); // use md5 hash!!
 int main(int argc, char *argv[]){
 
     // If argument was not passed
-    if (argv[1]==NULL)
-    {
+    if (argv[1]==NULL){
         fprintf(stderr, "Usage: ./detect_dups <directory>\n");
         //fprintf(stderr, "failure");
         exit(EXIT_FAILURE);
     }
+
+    mdctx = EVP_MD_CTX_new();
+
     // If an incorrect directory was given 
     //change the NULL listing
     char *path = argv[1];
@@ -64,6 +66,7 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
     char *hex = getMD5(path);
     storeToTable(hex, path, sb->st_ino, sb->st_dev);
     free(hex);
+    EVP_MD_CTX_free(mdctx);
     return 0;
 }
 
@@ -137,7 +140,7 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
 }
 
 
-void printDuplicates(int fileNumber, int referenceCount, int inodeNumber, int devNumber){
+void printDuplicates(){
     /*
     File <number>:
         MD5 Hash: <MD5 hash>
@@ -151,35 +154,15 @@ void printDuplicates(int fileNumber, int referenceCount, int inodeNumber, int de
                 <Path N>
     */
     
-    if(fileNumber == NULL){
-        return;
-    }
+    int fileNumber = 1;
+    
 
     // loop through each MD5 hash
     for(hashEntry *entry = hashTable; entry != NULL; entry = entry->hh.next){
         printf("File %d:\n", fileNumber);
         printf("\tMD5 Hash: %s\n", entry->md5);
         
-        // loop through each file node to check for hard links
-        for(fileNode *file = entry->files; file != NULL; file = file->next){
-            // check if the inode number and device number match
-            if(file->inode == inodeNumber && file->dev == devNumber){
-                referenceCount++;
-                printf("\t\tHard Link (%d): %d\n", referenceCount, inodeNumber); // represents unique inode number
-                printf("\t\t\tPaths:\t%s\n", file->path);
-            }
-        }
-
-        // loop through each file node again to check for soft links
-        for(fileNode *file = entry->files; file != NULL; file->next){
-            // check if the inode number and device number match
-            if(file->inode == inodeNumber && file->dev == devNumber){
-                referenceCount++;
-                printf("\t\tSoft Link (%d): %d\n", referenceCount, inodeNumber); // represents unique path
-                printf("\t\t\tPaths:\t%s\n", file->path);
-            }
-        }
-
+        
 
         fileNumber++;
     }
