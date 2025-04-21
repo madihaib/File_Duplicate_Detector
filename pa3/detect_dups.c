@@ -17,8 +17,7 @@ hashEntry *hashTable = NULL;
 EVP_MD_CTX *mdctx;
 const EVP_MD *EVP_md5(); // use md5 hash!!
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
 
     // If argument was not passed
     if (argv[1]==NULL)
@@ -48,13 +47,13 @@ int main(int argc, char *argv[])
 
 
 
-    printDuplicates();
+    // printDuplicates();
     freeAll();
     return 0;
 }
 
 // render the file information invoked by nftw
-static int render_file_info(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+static int render_file_info(const char *path, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
 
 
@@ -62,25 +61,24 @@ static int render_file_info(const char *fpath, const struct stat *sb, int tflag,
 
 
     // invoke any function that you may need to render the file information
-    char *hex = getMD5(fpath);
-    storeToTable(hex, fpath, sb->st_ino, sb->st_dev);
+    char *hex = getMD5(path);
+    storeToTable(hex, path, sb->st_ino, sb->st_dev);
     free(hex);
     return 0;
 }
 
 // add any other functions you may need over here
 
-char *getMD5(const char *fpath){
+char *getMD5(const char *path){
 
-    FILE *fp = fopen(fpath, "rb");
+    FILE *fp = fopen(path, "rb");
 
-    if(!fp){
-        return NULL;
+    if(fp == NULL){
+        return -1;
     }
     
     // initialize the MD5 context
     EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
-
 
     char buffer[256];
     while(fscanf(fp, "%s", buffer) != EOF){
@@ -139,12 +137,60 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
 }
 
 
-void printDuplicates(){
+void printDuplicates(int fileNumber, int referenceCount, int inodeNumber, int devNumber){
+    /*
+    File <number>:
+        MD5 Hash: <MD5 hash>
+        Hard Link (<reference count>): <Inode number>
+            Paths: <Path 1>
+                ...
+                <Path N>
+        Soft Link <number>(<reference count>): <Inode number>
+            Paths: <Path 1>
+                ...
+                <Path N>
+    */
+    
+    if(fileNumber == NULL){
+        return;
+    }
 
+    // loop through each MD5 hash
+    for(hashEntry *entry = hashTable; entry != NULL; entry = entry->hh.next){
+        printf("File %d:\n", fileNumber);
+        printf("\tMD5 Hash: %s\n", entry->md5);
+        
+        // loop through each file node to check for hard links
+        for(fileNode *file = entry->files; file != NULL; file = file->next){
+            // check if the inode number and device number match
+            if(file->inode == inodeNumber && file->dev == devNumber){
+                referenceCount++;
+                printf("\t\tHard Link (%d): %d\n", referenceCount, inodeNumber); // represents unique inode number
+                printf("\t\t\tPaths:\t%s\n", file->path);
+            }
+        }
+
+        // loop through each file node again to check for soft links
+        for(fileNode *file = entry->files; file != NULL; file->next){
+            // check if the inode number and device number match
+            if(file->inode == inodeNumber && file->dev == devNumber){
+                referenceCount++;
+                printf("\t\tSoft Link (%d): %d\n", referenceCount, inodeNumber); // represents unique path
+                printf("\t\t\tPaths:\t%s\n", file->path);
+            }
+        }
+
+
+        fileNumber++;
+    }
 
 }
 
 
-// void freeAll()
-// {
-// }
+void freeAll(){
+    // free the hash table and all its entries
+    hashEntry *currentEntry, *tmp;
+
+
+
+}
