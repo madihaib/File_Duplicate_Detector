@@ -151,6 +151,8 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
 
 
 int main(int argc, char *argv[]){
+
+  mdctx = EVP_MD_CTX_new();
   // If argument was not passed
   if ((argv[1] != NULL) && (argc == 2))
   {
