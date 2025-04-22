@@ -240,8 +240,6 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
     newFile->dev = dev;
     newFile->next = entry->files;
     entry->files = newFile;
-    
-
 }
 
 
@@ -343,8 +341,8 @@ void printDuplicates(){
 }
 
 
-void freeAll(){
-    // free the hash table and all its entries
+// void freeAll(){
+//     // free the hash table and all its entries
 
 
-}
+// }
