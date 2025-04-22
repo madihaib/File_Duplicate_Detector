@@ -18,6 +18,7 @@ typedef struct fileNode{
     char *path; // path to the file
     ino_t inode; // inode number of the file
     dev_t dev; // device number of the file
+    int isSoftLink; // 1 if soft link, 0 if hard link
     struct fileNode *next; // pointer to the next file node
 } fileNode;
 

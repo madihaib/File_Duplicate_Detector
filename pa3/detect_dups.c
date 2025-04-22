@@ -42,33 +42,36 @@ int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_val
   return 0;
 }
 
-char* getMD5(const char *filename){
 
-  int j;
-  unsigned char md5_value[EVP_MAX_MD_SIZE];
-  unsigned char* hashaspointer = (unsigned char*)malloc(EVP_MAX_MD_SIZE * sizeof(unsigned char));
-  int err;
-  EVP_MD_CTX *mdctx;
-  mdctx = EVP_MD_CTX_new();
-  if (!mdctx)
-  {
-    fprintf(stderr, "%s::%d::Error allocating MD5 context %d\n", __func__,
-            __LINE__, errno);
-    exit(EXIT_FAILURE);
-  }
-  err = compute_file_hash(filename, mdctx, md5_value, &md5_len);
-  if (err < 0)
-  {
-    fprintf(stderr, "error computing hash");
-  }
-  for (int i = 0; i < md5_len; i++)
-  {
-    // printf("%02x", md5_value[i]);
-    hashaspointer[i] = md5_value[i];
-  }
-  EVP_MD_CTX_free(mdctx); 
-  return hashaspointer;
-}
+// returns raw bytes:
+
+// char* getMD5(const char *filename){
+
+//   int j;
+//   unsigned char md5_value[EVP_MAX_MD_SIZE];
+//   unsigned char* hashaspointer = (unsigned char*)malloc(EVP_MAX_MD_SIZE * sizeof(unsigned char));
+//   int err;
+//   EVP_MD_CTX *mdctx;
+//   mdctx = EVP_MD_CTX_new();
+//   if (!mdctx)
+//   {
+//     fprintf(stderr, "%s::%d::Error allocating MD5 context %d\n", __func__,
+//             __LINE__, errno);
+//     exit(EXIT_FAILURE);
+//   }
+//   err = compute_file_hash(filename, mdctx, md5_value, &md5_len);
+//   if (err < 0)
+//   {
+//     fprintf(stderr, "error computing hash");
+//   }
+//   for (int i = 0; i < md5_len; i++)
+//   {
+//     // printf("%02x", md5_value[i]);
+//     hashaspointer[i] = md5_value[i];
+//   }
+//   EVP_MD_CTX_free(mdctx); 
+//   return hashaspointer;
+// }
 
 
 // render the file information invoked by nftw
@@ -237,6 +240,7 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
     newFile->dev = dev;
     newFile->next = entry->files;
     entry->files = newFile;
+    
 
 }
 
@@ -257,24 +261,90 @@ void printDuplicates(){
     
     int fileNumber = 1;
     
-
     // loop through each MD5 hash
     for(hashEntry *entry = hashTable; entry != NULL; entry = entry->hh.next){
-        printf("File %d:\n", fileNumber);
+        printf("File %d:\n", fileNumber++);
         printf("\tMD5 Hash: %s\n", entry->md5);
-        
-        
 
-        fileNumber++;
+        //count how many file nodes
+        int totalFiles = 0;
+        for(fileNode *file = entry->files; file != NULL; file = file->next){
+            totalFiles++;
+        }
+
+        // create an array of inodes
+        ino_t *inodeList = (ino_t*)malloc(totalFiles * sizeof(ino_t));
+        int inodeCount = 0;
+
+        // fill the inode list
+        for(fileNode *file = entry->files; file != NULL; file = file->next){
+            
+            int visited = 0;
+            for(int i = 0; i < inodeCount; i++){
+                if(inodeList[i] == file->inode){
+                    visited = 1;
+                    break;
+                }
+            }
+
+            if(!visited){
+                inodeList[inodeCount++] = file->inode;
+            }
+        }
+
+        // for each inode, print hardlinks and softlinks
+        int softLinkIndex = 1;
+        for(int i = 0; i < inodeCount; i++){
+            ino_t inode = inodeList[i];
+
+            // print hard links
+            char **regularPaths = malloc(totalFiles * sizeof(*regularPaths));
+            int hardLinkCount = 0;
+
+            for(fileNode *file = entry->files; file != NULL; file = file->next){
+                if(file->inode == inode && !file->isSoftLink){
+                    regularPaths[hardLinkCount++] = file->path;
+                }
+            }
+
+            printf("\t\tHard Link (%d): %lu\n", hardLinkCount, (unsigned long)inode);
+            printf("\t\t\tPaths: %s\n", regularPaths[0]);
+
+            for(int j = 1; j < hardLinkCount; j++){
+                printf("\t\t\t\t%s\n", regularPaths[j]);
+            }
+
+            free(regularPaths);
+
+            // print soft links
+            char **softPaths = malloc(totalFiles * sizeof(*softPaths));
+            int softLinkCount = 0;
+
+            for(fileNode *file = entry->files; file != NULL; file = file->next){
+                if(file->inode == inode && file->isSoftLink){
+                    softPaths[softLinkCount++] = file->path;
+                }
+            }
+
+            if(softLinkCount > 0){
+                printf("\t\t\tSoft Link %d(%d): %lu\n", softLinkIndex++, softLinkCount, (unsigned long)inode);
+                printf("\t\t\t\tPaths: %s\n", softPaths[0]);
+                for(int j = 1; j < softLinkCount; j++){
+                    printf("\t\t\t\t\t%s\n", softPaths[j]);
+                }
+            }
+            
+            free(softPaths);
+        }
+
+        free(inodeList);
+        printf("\n");
     }
-
 }
 
 
 void freeAll(){
     // free the hash table and all its entries
-    hashEntry *currentEntry, *tmp;
-
 
 
 }
