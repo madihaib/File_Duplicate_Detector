@@ -1,13 +1,16 @@
 // add any other includes in the detetc_dups.h file
+#define _XOPEN_SOURCE 500
 #include "detect_dups.h"
 #include <ftw.h>         //this contains the NFTW function
 #include <sys/stat.h>    //this contains the information needed for the stat command
 #include <openssl/evp.h> //this contains the information needed for the MD5
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h> // For getuid()
 #include <errno.h>
+#include <stdbool.h>
 #define MAX_LEN 2048
 
 // define any other global variable you may need over here
@@ -43,134 +46,109 @@ int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_val
 }
 
 
-// returns raw bytes:
-
-// char* getMD5(const char *filename){
-
-//   int j;
-//   unsigned char md5_value[EVP_MAX_MD_SIZE];
-//   unsigned char* hashaspointer = (unsigned char*)malloc(EVP_MAX_MD_SIZE * sizeof(unsigned char));
-//   int err;
-//   EVP_MD_CTX *mdctx;
-//   mdctx = EVP_MD_CTX_new();
-//   if (!mdctx)
-//   {
-//     fprintf(stderr, "%s::%d::Error allocating MD5 context %d\n", __func__,
-//             __LINE__, errno);
-//     exit(EXIT_FAILURE);
-//   }
-//   err = compute_file_hash(filename, mdctx, md5_value, &md5_len);
-//   if (err < 0)
-//   {
-//     fprintf(stderr, "error computing hash");
-//   }
-//   for (int i = 0; i < md5_len; i++)
-//   {
-//     // printf("%02x", md5_value[i]);
-//     hashaspointer[i] = md5_value[i];
-//   }
-//   EVP_MD_CTX_free(mdctx); 
-//   return hashaspointer;
-// }
-
-
 // render the file information invoked by nftw
 static int render_file_info(const char *path, const struct stat *sb, int tflag, struct FTW *ftwbuf){
 
-  unsigned char* hashToCompare = (unsigned char*)malloc(md5_len * sizeof(unsigned char));
-  // fpath = my current path
-  // REMEMBER that there is no explicit loop/recurison, NFTW does it internally with its own code,
-  // DON'T NEED TO WORRY ABOUT THAT
-  printf("Inode: %lu, Name: %s", (unsigned long)sb->st_ino, path);
-  printf("\n");
-  //(unsigned long)sb->st_ino is the number of the inode
-  // fpath = my current path
-  // sb contains extra metadata about the file such as the time created, user who created, number of the inode
-  /*
-  PROBABLY NOT AS IMPORTANT:
-   //ftwbuf contains information about the base (the index in the path string where the file name starts without the parent directory and extra slashes )
-  //and level (given directory is level 0, child is 1, etc.)
-  */
+    if (tflag != FTW_F) return 0;            // skip everything but real files
+    char *hex = getMD5(path);                // compute the MD5 hex string
+    storeToTable(hex, path, sb->st_ino, sb->st_dev, (tflag == FTW_SL) ? 1 : 0); 
+    free(hex);
 
-  switch (tflag)
-  {
-  case FTW_F:
-    printf(" Regular File, Last Access: %s ", ctime(&sb->st_atime));
-    hashToCompare = getMD5(path);
-    // printf("Hash IN METHOD:");
-    // for (int i=0; i<md5_len; i++)
-    // {
-    //   printf("%02x", hashToCompare[i]);
-    // }
-    printf("\n\n");
-    if (S_ISBLK(sb->st_mode))
-    {
-      printf(" (Block Device)");
+
+    if (tflag == FTW_F) {
+        // regular file
+        char *hex = getMD5(path);
+        if (hex) {
+            storeToTable(hex, path, sb->st_ino, sb->st_dev, 0);
+            free(hex);
+        }
     }
-    else if (S_ISCHR(sb->st_mode))
-    {
-      printf(" (Character Device)");
+    else if (tflag == FTW_SL) {
+        // symbolic link: stat its target, but record this path as a _soft_ link
+        struct stat ts;
+        if (stat(path, &ts) == 0 && S_ISREG(ts.st_mode)) {
+            char *hex = getMD5(path);
+            if (hex) {
+                storeToTable(hex, path, ts.st_ino, ts.st_dev, 1);
+                free(hex);
+            }
+        }
     }
-    break;
-  case FTW_D:
-    printf(" (Directory) \n");
-    printf("level=%02d, size=%07ld path=%s filename=%s\n",
-           ftwbuf->level, sb->st_size, path, path + ftwbuf->base);
-           hashToCompare = getMD5(path);
-          //  printf("Hash IN METHOD:");
-          //  for (int i=0; i<md5_len; i++)
-          //  {
-          //    printf("%02x", hashToCompare[i]);
-          //  }
-          //  printf("\n\n");
-    break;
-  case FTW_SL:
-    printf(" (Symbolic Link) \n");
-    break;
-  case FTW_NS:
-    printf(" (Unreadable) \n");
-    break;
-  case FTW_DNR:
-    printf(" (Directory cannot be read) \n");
-    break;
-  case FTW_SLN:
-    printf(" (Symbolic link refers to non-existent file)\n");
-    break;
-  default:
-    if (S_ISFIFO(sb->st_mode))
-    {
-      printf(" (FIFO)");
-    }
-    break;
-    printf("\n");
-    free(hashToCompare);
-  }
 
-  return 0; // DO NOT REMOVE THIS LINE.  THIS ENSURES THAT THE FILE-WALK RUNS MORE THAN ONCE.
-}
+    return 0;
 
 
-int main(int argc, char *argv[]){
-  // If argument was not passed
-  if ((argv[1] != NULL) && (argc == 2))
-  {
-    char *path = argv[1];
-    // Calling nftw
 
-    if (nftw(argv[1], render_file_info, 20, 0) == -1)
-    {
-      // Message in case we have the wrong directory
-      fprintf(stderr, "Error <error number>: <directory> is not a valid directory\n");
-      exit(EXIT_FAILURE);
-    }
-  }
-  // directory is NOT given
-  else if (argv[1] == NULL)
-  {
-    fprintf(stderr, "Usage: ./detect_dups <directory>\n");
-    exit(EXIT_FAILURE);
-  }
-  return 0;
+//   unsigned char* hashToCompare = (unsigned char*)malloc(md5_len * sizeof(unsigned char));
+//   // fpath = my current path
+//   // REMEMBER that there is no explicit loop/recurison, NFTW does it internally with its own code,
+//   // DON'T NEED TO WORRY ABOUT THAT
+//   printf("Inode: %lu, Name: %s", (unsigned long)sb->st_ino, path);
+//   printf("\n");
+//   //(unsigned long)sb->st_ino is the number of the inode
+//   // fpath = my current path
+//   // sb contains extra metadata about the file such as the time created, user who created, number of the inode
+//   /*
+//   PROBABLY NOT AS IMPORTANT:
+//    //ftwbuf contains information about the base (the index in the path string where the file name starts without the parent directory and extra slashes )
+//   //and level (given directory is level 0, child is 1, etc.)
+//   */
+
+//   switch (tflag)
+//   {
+//   case FTW_F:
+//     printf(" Regular File, Last Access: %s ", ctime(&sb->st_atime));
+//     hashToCompare = getMD5(path);
+//     // printf("Hash IN METHOD:");
+//     // for (int i=0; i<md5_len; i++)
+//     // {
+//     //   printf("%02x", hashToCompare[i]);
+//     // }
+//     printf("\n\n");
+//     if (S_ISBLK(sb->st_mode))
+//     {
+//       printf(" (Block Device)");
+//     }
+//     else if (S_ISCHR(sb->st_mode))
+//     {
+//       printf(" (Character Device)");
+//     }
+//     break;
+//   case FTW_D:
+//     printf(" (Directory) \n");
+//     printf("level=%02d, size=%07ld path=%s filename=%s\n",
+//            ftwbuf->level, sb->st_size, path, path + ftwbuf->base);
+//            hashToCompare = getMD5(path);
+//           //  printf("Hash IN METHOD:");
+//           //  for (int i=0; i<md5_len; i++)
+//           //  {
+//           //    printf("%02x", hashToCompare[i]);
+//           //  }
+//           //  printf("\n\n");
+//     break;
+//   case FTW_SL:
+//     printf(" (Symbolic Link) \n");
+//     break;
+//   case FTW_NS:
+//     printf(" (Unreadable) \n");
+//     break;
+//   case FTW_DNR:
+//     printf(" (Directory cannot be read) \n");
+//     break;
+//   case FTW_SLN:
+//     printf(" (Symbolic link refers to non-existent file)\n");
+//     break;
+//   default:
+//     if (S_ISFIFO(sb->st_mode))
+//     {
+//       printf(" (FIFO)");
+//     }
+//     break;
+//     printf("\n");
+//     free(hashToCompare);
+//   }
+
+//   return 0; // DO NOT REMOVE THIS LINE.  THIS ENSURES THAT THE FILE-WALK RUNS MORE THAN ONCE.
 }
 
 
@@ -185,6 +163,7 @@ char *getMD5(const char *path){
     }
     
     // initialize the MD5 context
+    mdctx = EVP_MD_CTX_new();
     EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
 
     char buffer[256];
@@ -200,18 +179,19 @@ char *getMD5(const char *path){
 
     // convert bytes to 32 char hexadecimal
     char *md5String = (char *)malloc(33);
-    for(int i = 0; i < mdValue_len; i++){
+    for(int i = 0; (unsigned)i < mdValue_len; i++){
         sprintf(md5String + i *2, "%02x", mdValue[i]);
     }
     md5String[32] = '\0';
 
     // close file
     fclose(fp);
+    //EVP_MD_CTX_free(mdctx); // free the context
     return md5String;
 }
 
 
-void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
+void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int isSoftLink){
 
     // look up MD5 string in the hash table, use HASH_FIND
     hashEntry *entry = NULL;
@@ -226,18 +206,19 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev){
     }
 
     // check for exising inode + dev for each file node
-    for(fileNode *file = entry->files; file != NULL; file = file->next){
-        if(file->inode == inode && file->dev == dev){
-            // the file already exists, so no you just return
-            return;
-        }
-    }
-    
+    // for(fileNode *file = entry->files; file != NULL; file = file->next){
+    //     if(file->inode == inode && file->dev == dev){
+    //         // the file already exists, so now you just return
+    //         return;
+    //     }
+    // }
+
     // create a new file node
     fileNode *newFile = (fileNode*)malloc(sizeof(fileNode));
     newFile->path = strdup(path); // duplicate the path
     newFile->inode = inode;
     newFile->dev = dev;
+    newFile->isSoftLink = isSoftLink; // 1 if soft link, 0 if hard link
     newFile->next = entry->files;
     entry->files = newFile;
 }
@@ -341,8 +322,31 @@ void printDuplicates(){
 }
 
 
-// void freeAll(){
-//     // free the hash table and all its entries
+int main(int argc, char *argv[]){
+  // If argument was not passed
+    if ((argv[1] != NULL) && (argc == 2)){
+    //char *path = argv[1];
+    // Calling nftw
 
+        mdctx = EVP_MD_CTX_new();
+        MD5Type = EVP_md5();
+        if(!mdctx || !MD5Type){
+            fprintf(stderr, "Error initializing MD5 context\n");
+            exit(EXIT_FAILURE);
+        }
 
-// }
+        if (nftw(argv[1], render_file_info, 20, FTW_PHYS) == -1){
+        // Message in case we have the wrong directory
+            fprintf(stderr, "Error <error number>: <directory> is not a valid directory\n");
+            exit(EXIT_FAILURE);
+        }
+
+    } else if (argv[1] == NULL){ // directory is NOT given
+        fprintf(stderr, "Usage: ./detect_dups <directory>\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    printDuplicates();
+    EVP_MD_CTX_free(mdctx); // free the context
+    return 0;
+}

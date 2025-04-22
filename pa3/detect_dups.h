@@ -36,8 +36,7 @@ static int render_file_info(const char *fpath, const struct stat *sb, int tflag,
 
 char *getMD5(const char *fpath);
 
-void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev);
+void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int isSoftLink);
 
 void printDuplicates();
 
-void freeAll(void);
