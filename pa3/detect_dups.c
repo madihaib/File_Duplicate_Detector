@@ -49,151 +49,80 @@ int compute_file_hash(const char *path, EVP_MD_CTX *mdctx, unsigned char *md_val
 // render the file information invoked by nftw
 static int render_file_info(const char *path, const struct stat *sb, int tflag, struct FTW *ftwbuf){
 
-    if (tflag != FTW_F) return 0;            // skip everything but real files
-    char *hex = getMD5(path);                // compute the MD5 hex string
-    storeToTable(hex, path, sb->st_ino, sb->st_dev, (tflag == FTW_SL) ? 1 : 0); 
-    free(hex);
-
-
-    if (tflag == FTW_F) {
+    if(tflag == FTW_F){
         // regular file
         char *hex = getMD5(path);
-        if (hex) {
-            storeToTable(hex, path, sb->st_ino, sb->st_dev, 0);
-            free(hex);
+        if(!hex){
+            fprintf(stderr,"warning: could not hash %s\n", path);
+            return 0;
         }
-    }
-    else if (tflag == FTW_SL) {
-        // symbolic link: stat its target, but record this path as a _soft_ link
-        struct stat ts;
-        if (stat(path, &ts) == 0 && S_ISREG(ts.st_mode)) {
-            char *hex = getMD5(path);
-            if (hex) {
-                storeToTable(hex, path, ts.st_ino, ts.st_dev, 1);
-                free(hex);
-            }
-        }
-    }
 
+        storeToTable(hex, path, sb->st_ino, sb->st_dev, 0);
+        free(hex);
+
+    } else if(tflag == FTW_SL){
+        // symbolic link
+        struct stat tsb;
+        if (stat(path, &tsb) == -1) {
+            return 0;
+        }
+
+        char *hex = getMD5(path);
+        if(!hex){
+            fprintf(stderr,"warning: could not hash target of %s\n", path);
+            return 0;
+        }
+
+        // store the hash in the hash table
+        storeToTable(hex, path, tsb.st_ino, tsb.st_dev, 1);
+        free(hex);
+    }
     return 0;
-
-
-
-//   unsigned char* hashToCompare = (unsigned char*)malloc(md5_len * sizeof(unsigned char));
-//   // fpath = my current path
-//   // REMEMBER that there is no explicit loop/recurison, NFTW does it internally with its own code,
-//   // DON'T NEED TO WORRY ABOUT THAT
-//   printf("Inode: %lu, Name: %s", (unsigned long)sb->st_ino, path);
-//   printf("\n");
-//   //(unsigned long)sb->st_ino is the number of the inode
-//   // fpath = my current path
-//   // sb contains extra metadata about the file such as the time created, user who created, number of the inode
-//   /*
-//   PROBABLY NOT AS IMPORTANT:
-//    //ftwbuf contains information about the base (the index in the path string where the file name starts without the parent directory and extra slashes )
-//   //and level (given directory is level 0, child is 1, etc.)
-//   */
-
-//   switch (tflag)
-//   {
-//   case FTW_F:
-//     printf(" Regular File, Last Access: %s ", ctime(&sb->st_atime));
-//     hashToCompare = getMD5(path);
-//     // printf("Hash IN METHOD:");
-//     // for (int i=0; i<md5_len; i++)
-//     // {
-//     //   printf("%02x", hashToCompare[i]);
-//     // }
-//     printf("\n\n");
-//     if (S_ISBLK(sb->st_mode))
-//     {
-//       printf(" (Block Device)");
-//     }
-//     else if (S_ISCHR(sb->st_mode))
-//     {
-//       printf(" (Character Device)");
-//     }
-//     break;
-//   case FTW_D:
-//     printf(" (Directory) \n");
-//     printf("level=%02d, size=%07ld path=%s filename=%s\n",
-//            ftwbuf->level, sb->st_size, path, path + ftwbuf->base);
-//            hashToCompare = getMD5(path);
-//           //  printf("Hash IN METHOD:");
-//           //  for (int i=0; i<md5_len; i++)
-//           //  {
-//           //    printf("%02x", hashToCompare[i]);
-//           //  }
-//           //  printf("\n\n");
-//     break;
-//   case FTW_SL:
-//     printf(" (Symbolic Link) \n");
-//     break;
-//   case FTW_NS:
-//     printf(" (Unreadable) \n");
-//     break;
-//   case FTW_DNR:
-//     printf(" (Directory cannot be read) \n");
-//     break;
-//   case FTW_SLN:
-//     printf(" (Symbolic link refers to non-existent file)\n");
-//     break;
-//   default:
-//     if (S_ISFIFO(sb->st_mode))
-//     {
-//       printf(" (FIFO)");
-//     }
-//     break;
-//     printf("\n");
-//     free(hashToCompare);
-//   }
-
-//   return 0; // DO NOT REMOVE THIS LINE.  THIS ENSURES THAT THE FILE-WALK RUNS MORE THAN ONCE.
 }
 
-
-// add any other functions you may need over here
 
 char *getMD5(const char *path){
 
     FILE *fp = fopen(path, "rb");
-
     if(!fp){
+        perror("Error opening file");
         return NULL;
     }
     
-    // initialize the MD5 context
-    mdctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
-
-    char buffer[256];
-    while(fscanf(fp, "%s", buffer) != EOF){
-        // read the file
-        EVP_DigestUpdate(mdctx, buffer, strlen(buffer)); // feed chunk of bytes
+    unsigned char buffer[MAX_LEN];
+    size_t bytesRead;
+    
+    // initialize a local context
+    EVP_MD_CTX *local_mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(local_mdctx, EVP_md5(), NULL);
+    
+    // read in chunks
+    while((bytesRead = fread(buffer, 1, MAX_LEN, fp)) > 0){
+        EVP_DigestUpdate(local_mdctx, buffer, bytesRead);
     }
-
+    
     unsigned char mdValue[EVP_MAX_MD_SIZE];
     unsigned int mdValue_len;
-
-    EVP_DigestFinal_ex(mdctx, mdValue, &mdValue_len); // gets the MD5 hash (16 bytes)
-
-    // convert bytes to 32 char hexadecimal
+    
+    EVP_DigestFinal_ex(local_mdctx, mdValue, &mdValue_len);
+    
+    // convert to 32 char hexadecimal
     char *md5String = (char *)malloc(33);
-    for(int i = 0; (unsigned)i < mdValue_len; i++){
-        sprintf(md5String + i *2, "%02x", mdValue[i]);
+    for(unsigned int i = 0; i < mdValue_len; i++){
+        sprintf(md5String + i * 2, "%02x", mdValue[i]);
     }
-    md5String[32] = '\0';
 
-    // close file
+    md5String[32] = '\0';
+    
     fclose(fp);
-    //EVP_MD_CTX_free(mdctx); // free the context
+    EVP_MD_CTX_free(local_mdctx);
     return md5String;
 }
 
 
 void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int isSoftLink){
 
-    // look up MD5 string in the hash table, use HASH_FIND
+    // look up MD5 string in the hash table, use HASH_FIND_STR
     hashEntry *entry = NULL;
     HASH_FIND_STR(hashTable, md5, entry);
 
@@ -225,18 +154,6 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int
 
 
 void printDuplicates(){
-    /*
-    File <number>:
-        MD5 Hash: <MD5 hash>
-        Hard Link (<reference count>): <Inode number>
-            Paths: <Path 1>
-                ...
-                <Path N>
-        Soft Link <number>(<reference count>): <Inode number>
-            Paths: <Path 1>
-                ...
-                <Path N>
-    */
     
     int fileNumber = 1;
     
