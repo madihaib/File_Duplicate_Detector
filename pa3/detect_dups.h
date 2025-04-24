@@ -28,6 +28,12 @@ typedef struct hashEntry {
     UT_hash_handle hh; // makes this structure hashable
 } hashEntry;
 
+// typedef struct nodeInfo
+// {
+//     char* path; //name of the file
+//     ino_t inode; //
+// }linkNode;
+
 
 // process nftw files using this function
 static int render_file_info(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf);
