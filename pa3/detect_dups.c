@@ -153,90 +153,178 @@ void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int
 }
 
 
-void printDuplicates(){
-    
+
+
+
+
+
+void printDuplicates() {
     int fileNumber = 1;
-    
-    // loop through each MD5 hash
-    for(hashEntry *entry = hashTable; entry != NULL; entry = entry->hh.next){
-        printf("File %d:\n", fileNumber++);
+    hashEntry *entry, *tmp;
+
+    // iterate through each MD5 entry in the hash table
+    HASH_ITER(hh, hashTable, entry, tmp) {
+        printf("File %d\n", fileNumber++);
         printf("\tMD5 Hash: %s\n", entry->md5);
 
-        //count how many file nodes
-        int totalFiles = 0;
-        for(fileNode *file = entry->files; file != NULL; file = file->next){
-            totalFiles++;
+        // count hard links
+        int totalHard = 0;
+        for (fileNode *f = entry->files; f; f = f->next) {
+            if (!f->isSoftLink) totalHard++;
         }
 
-        // create an array of inodes
-        ino_t *inodeList = (ino_t*)malloc(totalFiles * sizeof(ino_t));
+        // collect unique inodes
+        ino_t *inodeList = malloc(totalHard * sizeof(*inodeList));
         int inodeCount = 0;
-
-        // fill the inode list
-        for(fileNode *file = entry->files; file != NULL; file = file->next){
-            
-            int visited = 0;
-            for(int i = 0; i < inodeCount; i++){
-                if(inodeList[i] == file->inode){
-                    visited = 1;
-                    break;
-                }
+        for (fileNode *f = entry->files; f; f = f->next) {
+            if (f->isSoftLink) continue;
+            int seen = 0;
+            for (int k = 0; k < inodeCount; k++) {
+                if (inodeList[k] == f->inode) { seen = 1; break; }
             }
-
-            if(!visited){
-                inodeList[inodeCount++] = file->inode;
-            }
+            if (!seen) inodeList[inodeCount++] = f->inode;
         }
 
-        // for each inode, print hardlinks and softlinks
-        int softLinkIndex = 1;
-        for(int i = 0; i < inodeCount; i++){
-            ino_t inode = inodeList[i];
+        // for each inode: print hard links then soft links
+        for (int i = 0; i < inodeCount; i++) {
+            ino_t ino = inodeList[i];
 
-            // print hard links
-            char **regularPaths = malloc(totalFiles * sizeof(*regularPaths));
-            int hardLinkCount = 0;
+            // --- hard links ---
+            char **hardPaths = malloc(inodeCount * sizeof(*hardPaths));
+            int hardCount = 0;
+            for (fileNode *f = entry->files; f; f = f->next) {
+                if (f->inode == ino && !f->isSoftLink) {
+                    hardPaths[hardCount++] = f->path;
+                }
+            }
+            printf("\tHard Link (%d): %lu\n", hardCount, (unsigned long)ino);
+            printf("\t\tPaths: %s\n", hardPaths[0]);
+            for (int j = 1; j < hardCount; j++) {
+                printf("\t\t\t%s\n", hardPaths[j]);
+            }
+            free(hardPaths);
 
-            for(fileNode *file = entry->files; file != NULL; file = file->next){
-                if(file->inode == inode && !file->isSoftLink){
-                    regularPaths[hardLinkCount++] = file->path;
+            // --- soft links (one block per symlink) ---
+            int softIndex = 1;
+            for (fileNode *f = entry->files; f; f = f->next) {
+                if (f->inode == ino && f->isSoftLink) {
+                    struct stat stl;
+                    if (lstat(f->path, &stl) == -1) {
+                        perror("lstat");
+                        stl.st_ino = ino;
+                    }
+                    printf("\tSoft Link %d(1): %lu\n",
+                           softIndex++, (unsigned long)stl.st_ino);
+                    printf("\t\tPaths: %s\n", f->path);
                 }
             }
 
-            printf("\t\tHard Link (%d): %lu\n", hardLinkCount, (unsigned long)inode);
-            printf("\t\t\tPaths: %s\n", regularPaths[0]);
-
-            for(int j = 1; j < hardLinkCount; j++){
-                printf("\t\t\t\t%s\n", regularPaths[j]);
-            }
-
-            free(regularPaths);
-
-            // print soft links
-            char **softPaths = malloc(totalFiles * sizeof(*softPaths));
-            int softLinkCount = 0;
-
-            for(fileNode *file = entry->files; file != NULL; file = file->next){
-                if(file->inode == inode && file->isSoftLink){
-                    softPaths[softLinkCount++] = file->path;
-                }
-            }
-
-            if(softLinkCount > 0){
-                printf("\t\t\tSoft Link %d(%d): %lu\n", softLinkIndex++, softLinkCount, (unsigned long)inode);
-                printf("\t\t\t\tPaths: %s\n", softPaths[0]);
-                for(int j = 1; j < softLinkCount; j++){
-                    printf("\t\t\t\t\t%s\n", softPaths[j]);
-                }
-            }
-            
-            free(softPaths);
+            printf("\n");
         }
 
         free(inodeList);
-        printf("\n");
     }
 }
+
+
+
+
+
+
+
+
+
+// void printDuplicates(){
+    
+//     int fileNumber = 1;
+    
+//     // loop through each MD5 hash
+//     for(hashEntry *entry = hashTable; entry != NULL; entry = entry->hh.next){
+//         printf("File %d:\n", fileNumber++);
+//         printf("\tMD5 Hash: %s\n", entry->md5);
+
+//     // print the file paths
+//     int totalHard = 0;
+//     for(fileNode *f = entry->files; f; f = f->next){
+//         if(!f->isSoftLink){
+//             totalHard++;
+//         }
+//     }
+
+//     ino_t *inodeList = malloc(totalHard * sizeof(*inodeList));
+//     int inodeCount = 0;
+//     for(fileNode *f = entry->files; f; f = f->next){
+//         if(f->isSoftLink){
+//             continue;
+//         }
+
+//         // check if the inode is already in the list
+//         int visited = 0;
+//         for(int k = 0; k < inodeCount; k++){
+//             if(inodeList[k] == f->inode){ 
+//                 visited = 1; 
+//                 break; 
+//             }
+//         }
+//         if(!visited){
+//             inodeList[inodeCount++] = f->inode;
+//         }
+//     }
+
+//     // for each real inode, print its hard-links then its soft-links
+//     int softIndex = 1;
+//     for(int i = 0; i < inodeCount; i++){
+//         ino_t ino = inodeList[i];
+
+//         // hard links
+//         char **hardPaths = malloc(inodeCount * sizeof(*hardPaths));
+//         int hardCount = 0;
+//         for(fileNode *f = entry->files; f; f = f->next){
+//             if(f->inode == ino && !f->isSoftLink){
+//                 hardPaths[hardCount++] = f->path;
+//             }
+//         }
+
+//         printf("\t\tHard Link (%d): %lu\n", hardCount, (unsigned long)ino);
+//         printf("\t\t\tPaths: %s\n", hardPaths[0]);
+
+//         for(int j = 1; j < hardCount; j++){
+//             printf("\t\t\t\t%s\n", hardPaths[j]);
+//         }
+
+//         free(hardPaths);
+
+//         // soft links
+//         char **softPath = malloc(inodeCount * sizeof(*softPath));
+//         int softCount = 0;
+//         for(fileNode *f = entry->files; f; f = f->next){
+//             if(f->inode == ino && f->isSoftLink){
+//                 softPath[softCount++] = f->path;
+//             }
+//         }
+
+//         if(softCount){
+//             // get symlink’s own inode with lstat
+//             struct stat stl;
+
+//             if(lstat(softPath[0], &stl) == -1){
+//                 stl.st_ino = ino;
+//             }
+//             printf("\t\t\tSoft Link %d(%d): %lu\n",softIndex++, softCount, (unsigned long)stl.st_ino);
+//             printf("\t\t\t\tPaths: %s\n", softPath[0]);
+//             for(int j = 1; j < softCount; j++){
+//                 printf("\t\t\t\t\t%s\n", softPath[j]);
+//             }
+//         }
+//         free(softPath);
+//     }
+
+//     free(inodeList);
+//     printf("\n");
+
+
+//     }
+// }
 
 
 int main(int argc, char *argv[]){
