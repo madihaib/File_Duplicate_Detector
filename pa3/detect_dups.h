@@ -18,6 +18,7 @@ typedef struct fileNode{
     char *path; // path to the file
     ino_t inode; // inode number of the file
     dev_t dev; // device number of the file
+    int isSoftLink; // 1 if soft link, 0 if hard link
     struct fileNode *next; // pointer to the next file node
 } fileNode;
 
@@ -27,6 +28,12 @@ typedef struct hashEntry {
     UT_hash_handle hh; // makes this structure hashable
 } hashEntry;
 
+// typedef struct nodeInfo
+// {
+//     char* path; //name of the file
+//     ino_t inode; //
+// }linkNode;
+
 
 // process nftw files using this function
 static int render_file_info(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf);
@@ -35,8 +42,7 @@ static int render_file_info(const char *fpath, const struct stat *sb, int tflag,
 
 char *getMD5(const char *fpath);
 
-void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev);
+void storeToTable(const char *md5, const char *path, ino_t inode, dev_t dev, int isSoftLink);
 
-void printDuplicates(void);
+void printDuplicates();
 
-void freeAll(void);
