@@ -178,24 +178,33 @@ static int render_file_info(const char *path, const struct stat *sb, int tflag, 
                 return 0;
             }
             //hex = hash
-            storeToTable(hex, path, sb->st_ino, sb->st_dev, 0);
-            addtoArray(sb->st_ino);
-            free(hex);
+            if (sb->st_size > 0) //prevents hashing of empty file
+            {
+                storeToTable(hex, path, sb->st_ino, sb->st_dev, 0);
+                addtoArray(sb->st_ino);
+                free(hex);
+            }
         }
         else if(tflag == FTW_SL){
             //symbolic link
-            //struct stat tsb;
-            // if (stat(path, &tsb) == -1) {
-            //     return 0;
-            // }
+            struct stat brokenSymLinkChecker;
+
+            if (stat(path, &brokenSymLinkChecker) < 0) {
+                return 0;
+            }
+            if (!S_ISREG(brokenSymLinkChecker.st_mode) || brokenSymLinkChecker.st_size == 0) return 0; //ensures that an empty file is not hashed
             char *hex = getMD5(path);
             if(!hex){
                 fprintf(stderr,"warning: could not hash target of %s\n", path);
                 return 0;
             }
-            storeToTable(hex, path, sb->st_ino, sb->st_dev, 1);
-            addtoArray(sb->st_ino);
-            free(hex);
+            if (brokenSymLinkChecker.st_size > 0)
+            {
+                storeToTable(hex, path, sb->st_ino, sb->st_dev, 1);
+                addtoArray(sb->st_ino);
+                free(hex);
+            }
+           
             // printf("SOFT LINK Inode: %lu, Name: %s\n", (unsigned long)sb->st_ino, path);
             // store the hash in the hash table
             // storeToTable(hex, path, tsb.st_ino, tsb.st_dev, 1);
